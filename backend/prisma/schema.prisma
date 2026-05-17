@@ -1,0 +1,399 @@
+// SIMMASAMAL Prisma schema
+// Mirrors Laravel migrations and design.md
+// PostgreSQL target
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================
+// Auth
+// =====================
+enum Jabatan {
+  Administrator
+  Bendahara_DKM @map("Bendahara DKM")
+  Petugas_Qurban @map("Petugas Qurban")
+}
+
+model User {
+  id              Int           @id @default(autoincrement())
+  name            String
+  email           String        @unique
+  password        String
+  jabatan         Jabatan       @default(Administrator)
+  emailVerifiedAt DateTime?     @map("email_verified_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  infaqs          Infaq[]
+  pengeluarans    Pengeluaran[]
+
+  @@map("users")
+}
+
+// =====================
+// Zakat domain
+// =====================
+model Muzakki {
+  id             Int      @id @default(autoincrement())
+  noMuzakki      String   @unique @map("no_muzakki") @db.VarChar(8)
+  namaMuzakki    String   @map("nama_muzakki") @db.VarChar(80)
+  telpMuzakki    String   @map("telp_muzakki") @db.VarChar(20)
+  alamatMuzakki  String   @map("alamat_muzakki")
+  tanggalInput   DateTime @map("tanggal_input") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  zakats         Zakat[]
+
+  @@map("muzakkis")
+}
+
+model Mustahik {
+  id             Int      @id @default(autoincrement())
+  noMustahik     String   @unique @map("no_mustahik") @db.VarChar(8)
+  noKk           String   @map("no_kk") @db.VarChar(20)
+  namaMustahik   String   @map("nama_mustahik") @db.VarChar(80)
+  alamatMustahik String   @map("alamat_mustahik")
+  asnaf          String   @db.VarChar(40)
+  rt             String   @db.VarChar(4)
+  jumlahAnak     Int      @default(0) @map("jumlah_anak")
+  tanggalInput   DateTime @map("tanggal_input") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  penyaluranPenerimas PenyaluranPenerima[]
+
+  @@map("mustahiks")
+}
+
+model Zakat {
+  id                Int      @id @default(autoincrement())
+  noZakat           String   @unique @map("no_zakat") @db.VarChar(20)
+  tanggalZakat      DateTime @map("tanggal_zakat") @db.Date
+  jamZakat          String   @map("jam_zakat") @db.VarChar(20)
+  petugasPenerima   String   @map("petugas_penerima") @db.VarChar(80)
+  noMuzakki         String   @map("no_muzakki") @db.VarChar(8)
+  jenisZakat        String   @map("jenis_zakat") @db.VarChar(30)
+  jumlahZakat       Decimal  @map("jumlah_zakat") @db.Decimal(15, 2)
+  beratBeras        Decimal? @map("berat_beras") @db.Decimal(10, 2)
+  jenisBayar        String   @map("jenis_bayar") @db.VarChar(20)
+  status            String   @default("success") @db.VarChar(20)
+  snapToken         String?  @map("snap_token")
+  paymentType       String?  @map("payment_type")
+  transactionId     String?  @map("transaction_id")
+  transactionTime   String?  @map("transaction_time")
+  transactionStatus String?  @map("transaction_status")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  muzakki Muzakki @relation(fields: [noMuzakki], references: [noMuzakki])
+
+  @@map("zakats")
+}
+
+model Penyaluran {
+  noPenyaluran       String   @id @map("no_penyaluran") @db.VarChar(20)
+  tanggalPenyaluran  DateTime @map("tanggal_penyaluran") @db.Date
+  jamPenyaluran      String   @map("jam_penyaluran") @db.VarChar(20)
+  petugasPenyaluran  String   @map("petugas_penyaluran") @db.VarChar(80)
+  jenisZakat         String   @map("jenis_zakat") @db.VarChar(30)
+  totalPenyaluran    Decimal  @map("total_penyaluran") @db.Decimal(15, 2)
+  berasDisalurkan    Decimal  @default(0) @map("beras_disalurkan") @db.Decimal(10, 2)
+  statusPenyaluran   String   @map("status_penyaluran") @db.VarChar(30)
+  keterangan         String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  penerimas PenyaluranPenerima[]
+
+  @@map("penyalurans")
+}
+
+model PenyaluranPenerima {
+  id                 Int      @id @default(autoincrement())
+  noPenyaluran       String   @map("no_penyaluran") @db.VarChar(20)
+  mustahikId         Int      @map("mustahik_id")
+  jumlahTerima       Decimal  @default(0) @map("jumlah_terima") @db.Decimal(15, 2)
+  jumlahTerimaUang   Decimal? @map("jumlah_terima_uang") @db.Decimal(15, 2)
+  jumlahTerimaBeras  Decimal? @map("jumlah_terima_beras") @db.Decimal(10, 2)
+  statusPenerima     String   @default("pending") @map("status_penerima") @db.VarChar(30)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  penyaluran Penyaluran @relation(fields: [noPenyaluran], references: [noPenyaluran], onDelete: Cascade)
+  mustahik   Mustahik   @relation(fields: [mustahikId], references: [id])
+
+  @@map("penyaluran_penerimas")
+}
+
+// =====================
+// Infaq domain
+// =====================
+model Donatur {
+  id         Int      @id @default(autoincrement())
+  noDonatur  String   @unique @map("no_donatur") @db.VarChar(20)
+  nama       String
+  noTelepon  String   @map("no_telepon") @db.VarChar(25)
+  email      String?
+  pekerjaan  String?
+  alamat     String?
+  anonim     String   @default("tidak") @db.VarChar(10)
+  pesanDoa   String?  @map("pesan_doa")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  infaqs Infaq[]
+
+  @@map("donaturs")
+}
+
+model Infaq {
+  id                Int      @id @default(autoincrement())
+  noPenerimaan      String   @unique @map("no_penerimaan") @db.VarChar(30)
+  tanggal           DateTime @db.Date
+  waktu             String   @db.VarChar(20)
+  petugasId         Int?     @map("petugas_id")
+  donaturId         Int      @map("donatur_id")
+  jenisPenerimaan   String   @map("jenis_penerimaan")
+  jumlah            Decimal  @db.Decimal(15, 2)
+  status            String   @default("success") @db.VarChar(20)
+  snapToken         String?  @map("snap_token")
+  paymentType       String?  @map("payment_type")
+  transactionId     String?  @map("transaction_id")
+  transactionTime   String?  @map("transaction_time")
+  transactionStatus String?  @map("transaction_status")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  petugas User?    @relation(fields: [petugasId], references: [id])
+  donatur Donatur  @relation(fields: [donaturId], references: [id])
+
+  @@map("infaqs")
+}
+
+model Pengeluaran {
+  id                Int      @id @default(autoincrement())
+  noPengajuan       String   @map("no_pengajuan") @db.VarChar(30)
+  tanggal           DateTime @db.Date
+  namaKoordinator   String   @map("nama_koordinator")
+  koordinatorBidang String   @map("koordinator_bidang")
+  jenisPengeluaran  String   @map("jenis_pengeluaran")
+  jumlah            Decimal  @db.Decimal(15, 2)
+  keterangan        String?
+  userId            Int      @map("user_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("pengeluarans")
+}
+
+// =====================
+// Qurban domain
+// =====================
+model ShohibulQurban {
+  id             String   @id @db.VarChar(40)
+  tahunHijriah   String   @map("tahun_hijriah") @db.VarChar(10)
+  nik            String   @db.VarChar(20)
+  nama           String
+  hp             String   @db.VarChar(25)
+  alamat         String
+  jenisHewan     String   @map("jenis_hewan") @db.VarChar(40)
+  berat          String   @db.VarChar(20)
+  bagianDiminta  String   @map("bagian_diminta")
+  tanggal        String   @db.VarChar(30)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  details ShohibulQurbanDetail[]
+
+  @@map("shohibul_qurbans")
+}
+
+model ShohibulQurbanDetail {
+  id              String   @id @db.VarChar(40)
+  sqId            String   @map("sq_id") @db.VarChar(40)
+  nama            String
+  binOrBinti      String   @map("bin_or_binti")
+  binOrBintiValue String   @map("bin_or_binti_value")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  shohibulQurban ShohibulQurban @relation(fields: [sqId], references: [id], onDelete: Cascade)
+
+  @@map("shohibul_qurban_details")
+}
+
+model NasabahQurban {
+  id             String   @id @db.VarChar(40)
+  nik            String   @db.VarChar(20)
+  nama           String
+  hp             String   @db.VarChar(25)
+  alamat         String
+  refId          String   @map("ref_id") @db.VarChar(12)
+  targetHewanId  String?  @map("target_hewan_id") @db.VarChar(40)
+  totalTabungan  Decimal  @default(0) @map("total_tabungan") @db.Decimal(15, 2)
+  sisaTabungan   Decimal  @default(0) @map("sisa_tabungan") @db.Decimal(15, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  targetHewan HargaHewanQurban? @relation("NasabahTarget", fields: [targetHewanId], references: [id])
+  tabungans   TabunganQurban[]
+
+  @@map("nasabah_qurban")
+}
+
+model HargaHewanQurban {
+  id            String   @id @db.VarChar(40)
+  jenisHewan    String   @map("jenis_hewan")
+  harga         Decimal  @db.Decimal(15, 2)
+  tahunHijriah  String   @map("tahun_hijriah") @db.VarChar(10)
+  keterangan    String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tabungans        TabunganQurban[]
+  nasabahTargets   NasabahQurban[] @relation("NasabahTarget")
+
+  @@map("harga_hewan_qurban")
+}
+
+model TabunganQurban {
+  id                String    @id @db.VarChar(40)
+  nasabahId         String    @map("nasabah_id") @db.VarChar(40)
+  hargaHewanId      String    @map("harga_hewan_id") @db.VarChar(40)
+  jumlahSetoran     Decimal   @map("jumlah_setoran") @db.Decimal(15, 2)
+  tanggalSetor      DateTime  @map("tanggal_setor") @db.Date
+  keterangan        String?
+  metodePembayaran  String?   @map("metode_pembayaran")
+  status            String    @default("pending") @db.VarChar(20)
+  transactionStatus String?   @map("transaction_status")
+  transactionId     String?   @map("transaction_id")
+  transactionTime   DateTime? @map("transaction_time")
+  orderId           String?   @map("order_id")
+  paymentType       String?   @map("payment_type")
+  paymentTime       DateTime? @map("payment_time")
+  snapToken         String?   @map("snap_token")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  nasabah     NasabahQurban    @relation(fields: [nasabahId], references: [id])
+  hargaHewan  HargaHewanQurban @relation(fields: [hargaHewanId], references: [id])
+
+  @@map("tabungan_qurban")
+}
+
+model KeuanganQurban {
+  id                    String   @id @db.VarChar(40)
+  noTransaksi           String   @map("no_transaksi") @db.VarChar(30)
+  tanggal               DateTime @db.Date
+  jenis                 String   @db.VarChar(30)
+  jumlah                Decimal  @db.Decimal(15, 2)
+  keterangan            String?
+  tabunganQurbanId      String?  @map("tabungan_qurban_id") @db.VarChar(40)
+  hargaHewanQurbanId    String?  @map("harga_hewan_qurban_id") @db.VarChar(40)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("keuangan_qurban")
+}
+
+model PenerimaQurban {
+  id            String   @id @db.VarChar(40)
+  nik           String   @db.VarChar(20)
+  nama          String
+  tahunHijriah  String   @map("tahun_hijriah") @db.VarChar(10)
+  status        String   @db.VarChar(30)
+  alamat        String
+  rt            String   @db.VarChar(4)
+  rw            String   @db.VarChar(4)
+  kategori      String?  @db.VarChar(40)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("penerima_qurban")
+}
+
+model PetugasQurban {
+  id            String   @id @db.VarChar(40)
+  nik           String   @db.VarChar(20)
+  nama          String
+  tahunHijriah  String   @map("tahun_hijriah") @db.VarChar(10)
+  status        String   @db.VarChar(30)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("petugas_qurban")
+}
+
+model AturanPembagian {
+  id        Int      @id @default(autoincrement())
+  status    String
+  produk    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("aturan_pembagians")
+}
+
+model PembagianProduk {
+  id             Int      @id @default(autoincrement())
+  produk         String
+  berat          Decimal  @db.Decimal(10, 2)
+  totalBungkus   Int      @map("total_bungkus")
+  beratPerproduk Decimal  @map("berat_perproduk") @db.Decimal(10, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("pembagian_produks")
+}
+
+// =====================
+// Public info
+// =====================
+model Sholat {
+  id           Int      @id @default(autoincrement())
+  namaSholat   String   @map("nama_sholat")
+  waktuSholat  String   @map("waktu_sholat") @db.VarChar(10)
+  waktuIqomah  String   @map("waktu_iqomah") @db.VarChar(10)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("sholats")
+}
+
+model Kajian {
+  id              Int      @id @default(autoincrement())
+  judulKajian     String   @map("judul_kajian")
+  deskripsiKajian String   @map("deskripsi_kajian")
+  tanggalKajian   DateTime @map("tanggal_kajian") @db.Date
+  fotoKajian      String?  @map("foto_kajian")
+  fotoUstad       String?  @map("foto_ustad")
+  namaUstad       String?  @map("nama_ustad")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("kajians")
+}
+
+model Inventory {
+  id            Int      @id @default(autoincrement())
+  nama          String
+  kondisi       String   @default("Baik") @db.VarChar(20)
+  quantity      Int      @default(0)
+  jumlahBaik    Int      @default(0) @map("jumlah_baik")
+  jumlahRusak   Int      @default(0) @map("jumlah_rusak")
+  jumlahHilang  Int      @default(0) @map("jumlah_hilang")
+  gambar        String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("inventories")
+}
